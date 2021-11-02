@@ -7,8 +7,6 @@ public class Sender {
     private int rcvPort;
     private int sendPort;
     private DatagramSocket socket;
-    private FileInputStream fis = null;
-    private BufferedInputStream bis = null;
     private final static String CRLF = "\r\n";
     
     public Sender(String IP, int rcvPort, int sendPort) {
@@ -28,18 +26,16 @@ public class Sender {
     	
     }
     
-    public void send(File file) {
+    public void send(File file,int timeout) {
     	try {
-			this.fis = new FileInputStream(file);
-			this.bis = new BufferedInputStream(this.fis);
 			byte[] byteArray = readFiletoBytes(file);
 			boolean end=false;
 			int sequenceNum=0;
 			
 			for(int i =0;i<byteArray.length;i=i+1022) {
 				byte[] message = new byte[1024];
-				sequenceNum++;
 				message[0] = (byte) sequenceNum;
+				
 				if((i+1022)>=byteArray.length) {
 					end=true;
 					message[1] = (byte) 1;
@@ -57,12 +53,32 @@ public class Sender {
 				System.out.println("Sequence Number: " + sequenceNum );
 				
 				boolean received;
+				int ackSequence=0;
 				while(true) {
 					byte[] ACK = new byte[1];
 					DatagramPacket ACKpack = new DatagramPacket(ACK,ACK.length);
+					try {
+						socket.setSoTimeout(timeout);
+						socket.receive(ACKpack);
+						ackSequence = ACK[0];
+						received = true;
+					}catch (SocketTimeoutException e) {
+						received = false;
+					}
+					
+					if(ackSequence == sequenceNum && received) {
+						System.out.println("ACK received: Sequence num: " + ackSequence);
+						break;
+					}else {
+						socket.send(data);
+						System.out.println("Resending packet");
+					}
+					
 					
 					
 				}
+				sequenceNum = sequenceNum==1 ? 0 : 1;
+				
 			}
 		} catch (FileNotFoundException e) {
 			// TODO Auto-generated catch block
