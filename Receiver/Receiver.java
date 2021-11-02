@@ -27,12 +27,12 @@ public class Receiver {
 
         int seqNum = 0;
         int prev = 0;
-        int flag = 0;
+        // int flag = 0;
 
         while (true) {
 
             byte[] rcvMessage = new byte[1024];
-            byte[] fileData = new byte[1021];
+            byte[] fileData = new byte[1022];
 
             DatagramPacket incomingPacket = new DatagramPacket(rcvMessage, rcvMessage.length);
             socket.receive(incomingPacket);
@@ -49,27 +49,26 @@ public class Receiver {
                 } else {
                     prev = 0;
                 }
-                System.arraycopy(rcvMessage, 3, fileData, 0, 1021);
+                System.arraycopy(rcvMessage, 2, fileData, 0, 1022);
                 outputFile.write(fileData);
+                sendAck(prev, socket, sndrAdd, sndrPort);
             } else {
                 // we didnt get the right seq
-                sendAck(prev, socket, sndrAdd, sndrPort);
+                System.out.println("Did not receive correct squence number");
             }
 
-            if (flag == 1) {
-                // got the last datagram
-                outputFile.close();
-                break;
-            }
+            // if (flag == 1) {
+            // outputFile.close();
+            // break;
+            // }
 
         }
 
     }
 
     private static void sendAck(int prev, DatagramSocket socket, InetAddress sndrAdd, int sndrPort) throws IOException {
-        byte[] ackPacket = new byte[2];
-        ackPacket[0] = (byte) (prev >> 8);
-        ackPacket[1] = (byte) (prev);
+        byte[] ackPacket = new byte[1];
+        ackPacket[0] = (byte) (prev);
         DatagramPacket ack = new DatagramPacket(ackPacket, ackPacket.length, sndrAdd, sndrPort);
         socket.send(ack);
     }
