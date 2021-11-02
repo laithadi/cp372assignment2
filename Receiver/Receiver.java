@@ -27,7 +27,7 @@ public class Receiver {
 
         int seqNum = 0;
         int prev = 0;
-        // int flag = 0;
+        int flag = 0;
 
         while (true) {
 
@@ -57,10 +57,10 @@ public class Receiver {
                 System.out.println("Did not receive correct squence number");
             }
 
-            // if (flag == 1) {
-            // outputFile.close();
-            // break;
-            // }
+            if (flag == 1) {
+                outputFile.close();
+                break;
+            }
 
         }
 
