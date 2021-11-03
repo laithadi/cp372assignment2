@@ -3,34 +3,76 @@ import java.net.*;
 
 
 public class Sender {
-	private InetAddress IP;
+	private InetAddress rcvAddress;
     private int rcvPort;
     private int sendPort;
     private DatagramSocket socket;
-    private final static String CRLF = "\r\n";
     
-    public Sender(String IP, int rcvPort, int sendPort) {
-    	try {
-    		this.IP = InetAddress.getByName(IP);
+    public Sender(String IP, int rcvPort, int sendPort) throws UnknownHostException, SocketException {
+    	
+    		this.rcvAddress = InetAddress.getByName(IP);
     		this.sendPort = sendPort;
         	this.rcvPort = rcvPort;
-        	this.socket = new DatagramSocket(this.rcvPort);
-    	} catch (SocketException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (UnknownHostException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+        	this.socket = new DatagramSocket(this.sendPort);
+    	
     	
     	
     }
     
-    public void send(File file,int timeout) {
+    public void sendPacket(byte[] byteArray,int timeout, boolean unreliable,int index,int sequenceNum,int packetNum,boolean end) throws IOException {
+    	byte[] message = new byte[1024];
+    	message[0] = (byte) sequenceNum;
+    	message[1] = end ? (byte) 1: (byte) 0;
+    	if(!end) {
+    		System.arraycopy(byteArray, index, message, 2, message.length-2);
+    	}else {
+    		System.arraycopy(byteArray, index, message, 2, byteArray.length-index);
+    		System.out.println("End of file");
+    	}
+    	DatagramPacket data = new DatagramPacket(message,message.length,this.rcvAddress,this.rcvPort);
+    	packetNum++;
+    	if(unreliable && packetNum%10==0){
+    		System.out.println(String.format("Dropping packet #:%d in unreliable mode", packetNum));
+    	}else {
+    		this.socket.send(data);
+    	}
+    	System.out.println("Sequence Number: "+ sequenceNum);
+    	
+    	boolean received;
+    	int ackSequence=0;
+    	while(true) {
+    		byte[] ACK = new byte[1];
+    		DatagramPacket ACKpack = new DatagramPacket(ACK,ACK.length);
+    		try {
+    			socket.setSoTimeout(timeout);
+    			socket.receive(ACKpack);
+    			ackSequence = ACK[0];
+    			received = true;
+    			System.out.println("Acknowledgement number: " + ACK[0]);
+    		}catch (SocketTimeoutException e) {
+    			received = false;
+    			System.out.println("ACK not received");
+    		}
+    		
+    		if(ackSequence == sequenceNum && received) {
+    			System.out.println("ACK received: Sequence Num: " + ackSequence);
+    			break;
+    		}else {
+    			socket.send(data);
+    			System.out.println("Resending packet");
+    		}
+    	}
+    	
+    	
+    }
+    
+    public void send(File file,int timeout,boolean unreliable) {
     	try {
 			byte[] byteArray = readFiletoBytes(file);
 			boolean end=false;
 			int sequenceNum=0;
+			int ackSequence=0;
+			int packetNum = 0;
 			
 			for(int i =0;i<byteArray.length;i=i+1022) {
 				byte[] message = new byte[1024];
@@ -48,12 +90,18 @@ public class Sender {
 				}else {
 					System.arraycopy(byteArray, i, message, 2, byteArray.length-i);
 				}
-				DatagramPacket data = new DatagramPacket(message,message.length,this.IP,this.rcvPort);
-				this.socket.send(data);
+				DatagramPacket data = new DatagramPacket(message,message.length,this.rcvAddress,this.rcvPort);
+				packetNum++;
+				if(unreliable && packetNum%10==0) {
+					System.out.println(String.format("Dropping packet #:%d in unreliable mode", packetNum));
+				}else {
+					this.socket.send(data);
+				}
+				
 				System.out.println("Sequence Number: " + sequenceNum );
 				
 				boolean received;
-				int ackSequence=0;
+				
 				while(true) {
 					byte[] ACK = new byte[1];
 					DatagramPacket ACKpack = new DatagramPacket(ACK,ACK.length);
@@ -77,7 +125,8 @@ public class Sender {
 					
 					
 				}
-				sequenceNum = sequenceNum==1 ? 0 : 1;
+				ackSequence = ackSequence == 1 ? 0 : 1;
+				sequenceNum = sequenceNum == 1 ? 0 : 1;
 				
 			}
 		} catch (FileNotFoundException e) {
@@ -90,7 +139,7 @@ public class Sender {
     	
     }
     
-    private byte[] readFiletoBytes(File file) {
+    public byte[] readFiletoBytes(File file) {
     	FileInputStream inputStream = null;
     	byte[] bArray = new byte[(int) file.length()];
     	try {
