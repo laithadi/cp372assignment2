@@ -13,18 +13,28 @@ import java.util.Arrays;
 public class Receiver {
 
     public static void main(String[] args) throws IOException {
-        String IPadd = args[0]; // IP address of the Receiver
+        String IPadd = args[0]; // IP address of the sender
+        InetAddress sndrAdd = InetAddress.getByName(IPadd);
         int rcvPort = Integer.parseInt(args[1]); // port # used by the receiver to receive data from the sender
         int sndrPort = Integer.parseInt(args[2]); // port # used by the sender to receive ACKs from the receiver
         String rcvFileName = args[3];
         File resFile = new File(rcvFileName);
         FileOutputStream oFile = new FileOutputStream(resFile);
         DatagramSocket socket = new DatagramSocket(rcvPort);
-        receiveFile(oFile, socket, sndrPort);
+
+        try {
+            while (!isAlive(socket, sndrPort)) {
+
+            }
+            receiveFile(oFile, socket, sndrPort, sndrAdd);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
     }
 
-    public static void receiveFile(FileOutputStream outputFile, DatagramSocket socket, int sndrPort)
-            throws IOException {
+    public static void receiveFile(FileOutputStream outputFile, DatagramSocket socket, int sndrPort,
+            InetAddress sndrAdd) throws IOException {
 
         int seqNum = 0;
         int prev = 0;
@@ -39,8 +49,6 @@ public class Receiver {
             socket.receive(incomingPacket);
             rcvMessage = incomingPacket.getData();
 
-            InetAddress sndrAdd = incomingPacket.getAddress();
-
             seqNum = rcvMessage[0];
             flag = rcvMessage[1];
 
@@ -53,23 +61,35 @@ public class Receiver {
                 System.arraycopy(rcvMessage, 2, fileData, 0, 1022);
                 System.out.println(Arrays.toString(fileData));
                 outputFile.write(fileData);
-                System.out.println("Sending acknowldegment: "+ seqNum);
-                
+                System.out.println("Sending acknowldegment: " + seqNum);
             } else {
-                // we didnt get the right seq
-                System.out.println("Did not receive correct sequence number don't write to file");
-            
+                System.out.println("Did not receive correct squence number");
             }
+
             sendAck(seqNum, socket, sndrAdd, sndrPort);
 
             if (flag == 1) {
-            	System.out.println("Reached end of file");
+                System.out.println("Reached end of file!");
                 outputFile.close();
                 break;
             }
 
         }
 
+    }
+
+    public static boolean isAlive(DatagramSocket socket, int sndrPort) throws IOException {
+        byte[] aliveornot = new byte[1];
+
+        DatagramPacket incomingPacket = new DatagramPacket(aliveornot, aliveornot.length);
+        socket.receive(incomingPacket);
+        aliveornot = incomingPacket.getData();
+
+        if (aliveornot[0] == 1) {
+            return true;
+        } else {
+            return false;
+        }
     }
 
     private static void sendAck(int prev, DatagramSocket socket, InetAddress sndrAdd, int sndrPort) throws IOException {
