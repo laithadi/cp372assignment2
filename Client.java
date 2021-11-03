@@ -3,19 +3,28 @@ import java.awt.EventQueue;
 import javax.swing.JFrame;
 import java.awt.GridBagLayout;
 import javax.swing.JTextField;
+import javax.swing.SwingUtilities;
+
 import java.awt.GridBagConstraints;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+
 import java.awt.Insets;
 import javax.swing.JButton;
 import javax.swing.JFileChooser;
 
 import java.awt.event.ActionListener;
+import java.io.File;
+import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.net.SocketException;
+import java.net.UnknownHostException;
 import java.awt.event.ActionEvent;
 import javax.swing.JRadioButton;
 import javax.swing.ButtonGroup;
 
 public class Client {
-
+	private Sender sender = null;
 	private JFrame frame;
 	private JTextField IPAddress;
 	private JTextField senderPort;
@@ -23,13 +32,13 @@ public class Client {
 	private JFileChooser fileChooser = new JFileChooser(System.getProperty("user.dir"));
 	private JTextField filePath;
 	private JLabel lblTimeout;
-	private JTextField timeout;
+	private JTextField TIMEOUT;
 	private JRadioButton rdbtnReliable;
 	private JRadioButton rdbtnUnreliable;
 	private final ButtonGroup buttonGroup = new ButtonGroup();
 	private JButton btnSend;
 	private JButton btnIsalive;
-	private JTextField textField;
+	private JTextField numPacketsinOrder;
 	private JLabel lblSentInorder;
 
 	/**
@@ -162,14 +171,14 @@ public class Client {
 		frame.getContentPane().add(filePath, gbc_filePath);
 		filePath.setColumns(10);
 		
-		timeout = new JTextField();
-		GridBagConstraints gbc_timeout = new GridBagConstraints();
-		gbc_timeout.insets = new Insets(0, 0, 5, 5);
-		gbc_timeout.fill = GridBagConstraints.HORIZONTAL;
-		gbc_timeout.gridx = 5;
-		gbc_timeout.gridy = 4;
-		frame.getContentPane().add(timeout, gbc_timeout);
-		timeout.setColumns(10);
+		TIMEOUT = new JTextField();
+		GridBagConstraints gbc_TIMEOUT = new GridBagConstraints();
+		gbc_TIMEOUT.insets = new Insets(0, 0, 5, 5);
+		gbc_TIMEOUT.fill = GridBagConstraints.HORIZONTAL;
+		gbc_TIMEOUT.gridx = 5;
+		gbc_TIMEOUT.gridy = 4;
+		frame.getContentPane().add(TIMEOUT, gbc_TIMEOUT);
+		TIMEOUT.setColumns(10);
 		
 		rdbtnUnreliable = new JRadioButton("Unreliable");
 		buttonGroup.add(rdbtnUnreliable);
@@ -179,19 +188,74 @@ public class Client {
 		gbc_rdbtnUnreliable.gridy = 4;
 		frame.getContentPane().add(rdbtnUnreliable, gbc_rdbtnUnreliable);
 		
-		btnSend = new JButton("SEND");
-		GridBagConstraints gbc_btnSend = new GridBagConstraints();
-		gbc_btnSend.insets = new Insets(0, 0, 5, 5);
-		gbc_btnSend.gridx = 1;
-		gbc_btnSend.gridy = 6;
-		frame.getContentPane().add(btnSend, gbc_btnSend);
-		
 		btnIsalive = new JButton("ISALIVE?");
 		GridBagConstraints gbc_btnIsalive = new GridBagConstraints();
 		gbc_btnIsalive.insets = new Insets(0, 0, 5, 5);
-		gbc_btnIsalive.gridx = 5;
+		gbc_btnIsalive.gridx = 1;
 		gbc_btnIsalive.gridy = 6;
 		frame.getContentPane().add(btnIsalive, gbc_btnIsalive);
+		
+		btnSend = new JButton("SEND");
+		btnSend.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				
+				btnSend.setEnabled(false);
+				btnIsalive.setEnabled(false);
+				String IP;
+				int rcvPort;
+				int sendPort;
+				int timeout;
+				boolean unreliable;
+				try {
+					IP = IPAddress.getText();
+					rcvPort = Integer.parseInt(receiverPort.getText());
+					sendPort = Integer.parseInt(senderPort.getText());
+					timeout = Integer.parseInt(TIMEOUT.getText());
+					unreliable = rdbtnUnreliable.isSelected();
+					File file = fileChooser.getSelectedFile();
+					sender = new Sender(IP,rcvPort,sendPort);
+					byte[] byteArray = sender.readFiletoBytes(file);
+					boolean end=false;
+					int sequenceNum =0;
+					int packetNum =0;
+					int index=0;
+					for(int i=0;i<byteArray.length;i+=1022) {
+						index=i;
+						if((i+1022)>=byteArray.length) {
+							end = true;
+						}
+						sender.sendPacket(byteArray, timeout, unreliable, index, sequenceNum, packetNum, end);
+						packetNum++;
+						sequenceNum = sequenceNum==1 ? 0:1;
+						numPacketsinOrder.setText(Integer.toString(packetNum));
+						
+					}
+				System.out.println("All packets sent");
+					
+				}catch (NumberFormatException err) {
+					System.out.println("Incorrect credentials");
+					JOptionPane.showMessageDialog(null, "Incorrect Input");
+				} catch (UnknownHostException e1) {
+					// TODO Auto-generated catch block
+					JOptionPane.showMessageDialog(null, "Incorrect Credentials");
+				} catch (SocketException  e1) {
+					// TODO Auto-generated catch block
+					JOptionPane.showMessageDialog(null, "Unable to connect");
+					e1.printStackTrace();
+				} catch (IOException e1) {
+					// TODO Auto-generated catch block
+					e1.printStackTrace();
+				}
+				btnSend.setEnabled(true);
+				btnIsalive.setEnabled(true);
+				
+			}
+		});
+		GridBagConstraints gbc_btnSend = new GridBagConstraints();
+		gbc_btnSend.insets = new Insets(0, 0, 5, 5);
+		gbc_btnSend.gridx = 5;
+		gbc_btnSend.gridy = 6;
+		frame.getContentPane().add(btnSend, gbc_btnSend);
 		
 		lblSentInorder = new JLabel("# of sent in-order packets");
 		GridBagConstraints gbc_lblSentInorder = new GridBagConstraints();
@@ -201,14 +265,14 @@ public class Client {
 		gbc_lblSentInorder.gridy = 6;
 		frame.getContentPane().add(lblSentInorder, gbc_lblSentInorder);
 		
-		textField = new JTextField();
-		GridBagConstraints gbc_textField = new GridBagConstraints();
-		gbc_textField.insets = new Insets(0, 0, 0, 5);
-		gbc_textField.fill = GridBagConstraints.HORIZONTAL;
-		gbc_textField.gridx = 8;
-		gbc_textField.gridy = 7;
-		frame.getContentPane().add(textField, gbc_textField);
-		textField.setColumns(10);
+		numPacketsinOrder = new JTextField();
+		GridBagConstraints gbc_numPacketsinOrder = new GridBagConstraints();
+		gbc_numPacketsinOrder.insets = new Insets(0, 0, 0, 5);
+		gbc_numPacketsinOrder.fill = GridBagConstraints.HORIZONTAL;
+		gbc_numPacketsinOrder.gridx = 8;
+		gbc_numPacketsinOrder.gridy = 7;
+		frame.getContentPane().add(numPacketsinOrder, gbc_numPacketsinOrder);
+		numPacketsinOrder.setColumns(10);
 	}
 
 }
