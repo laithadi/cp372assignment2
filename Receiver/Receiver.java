@@ -8,6 +8,7 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketException;
+import java.util.Arrays;
 
 public class Receiver {
 
@@ -50,14 +51,19 @@ public class Receiver {
                     prev = 0;
                 }
                 System.arraycopy(rcvMessage, 2, fileData, 0, 1022);
+                System.out.println(Arrays.toString(fileData));
                 outputFile.write(fileData);
-                sendAck(prev, socket, sndrAdd, sndrPort);
+                System.out.println("Sending acknowldegment: "+ seqNum);
+                
             } else {
                 // we didnt get the right seq
-                System.out.println("Did not receive correct squence number");
+                System.out.println("Did not receive correct sequence number don't write to file");
+            
             }
+            sendAck(seqNum, socket, sndrAdd, sndrPort);
 
             if (flag == 1) {
+            	System.out.println("Reached end of file");
                 outputFile.close();
                 break;
             }
