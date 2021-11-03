@@ -19,6 +19,31 @@ public class Sender {
     	
     }
     
+    public boolean isAlive() throws IOException {
+    	byte[] message = new byte[1];
+    	message[0] = (byte) 1;
+    	int alive;
+    	DatagramPacket handshake = new DatagramPacket(message, message.length,this.rcvAddress,this.rcvPort);
+    	this.socket.send(handshake);
+    	try {
+    		byte[] ACK = new byte[1];
+    		DatagramPacket ACKpack = new DatagramPacket(ACK,ACK.length);
+    		this.socket.setSoTimeout(5000);
+			this.socket.receive(ACKpack);
+			alive = ACK[0];
+			if(alive==1) {
+				return true;
+			}
+    	}catch (SocketTimeoutException e) {
+    		e.printStackTrace();
+    		
+    	} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+    	return false;
+    }
+    
     public void sendPacket(byte[] byteArray,int timeout, boolean unreliable,int index,int sequenceNum,int packetNum,boolean end) throws IOException {
     	byte[] message = new byte[1024];
     	message[0] = (byte) sequenceNum;
@@ -34,6 +59,7 @@ public class Sender {
     	if(unreliable && packetNum%10==0){
     		System.out.println(String.format("Dropping packet #:%d in unreliable mode", packetNum));
     	}else {
+    		System.out.println("Sending packet #: "+ packetNum);
     		this.socket.send(data);
     	}
     	System.out.println("Sequence Number: "+ sequenceNum);
@@ -66,78 +92,6 @@ public class Sender {
     	
     }
     
-    public void send(File file,int timeout,boolean unreliable) {
-    	try {
-			byte[] byteArray = readFiletoBytes(file);
-			boolean end=false;
-			int sequenceNum=0;
-			int ackSequence=0;
-			int packetNum = 0;
-			
-			for(int i =0;i<byteArray.length;i=i+1022) {
-				byte[] message = new byte[1024];
-				message[0] = (byte) sequenceNum;
-				
-				if((i+1022)>=byteArray.length) {
-					end=true;
-					message[1] = (byte) 1;
-				}else {
-					message[1] = (byte) 0;
-				}
-				
-				if(!end) {
-					System.arraycopy(byteArray, i, message, 2, message.length-2);
-				}else {
-					System.arraycopy(byteArray, i, message, 2, byteArray.length-i);
-				}
-				DatagramPacket data = new DatagramPacket(message,message.length,this.rcvAddress,this.rcvPort);
-				packetNum++;
-				if(unreliable && packetNum%10==0) {
-					System.out.println(String.format("Dropping packet #:%d in unreliable mode", packetNum));
-				}else {
-					this.socket.send(data);
-				}
-				
-				System.out.println("Sequence Number: " + sequenceNum );
-				
-				boolean received;
-				
-				while(true) {
-					byte[] ACK = new byte[1];
-					DatagramPacket ACKpack = new DatagramPacket(ACK,ACK.length);
-					try {
-						socket.setSoTimeout(timeout);
-						socket.receive(ACKpack);
-						ackSequence = ACK[0];
-						received = true;
-					}catch (SocketTimeoutException e) {
-						received = false;
-					}
-					
-					if(ackSequence == sequenceNum && received) {
-						System.out.println("ACK received: Sequence num: " + ackSequence);
-						break;
-					}else {
-						socket.send(data);
-						System.out.println("Resending packet");
-					}
-					
-					
-					
-				}
-				ackSequence = ackSequence == 1 ? 0 : 1;
-				sequenceNum = sequenceNum == 1 ? 0 : 1;
-				
-			}
-		} catch (FileNotFoundException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-    	
-    }
     
     public byte[] readFiletoBytes(File file) {
     	FileInputStream inputStream = null;
