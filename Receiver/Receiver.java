@@ -1,5 +1,3 @@
-// package cp372assignment2.Receiver;
-
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -23,7 +21,7 @@ public class Receiver {
         DatagramSocket socket = new DatagramSocket(rcvPort);
 
         try {
-            while (!isAlive(socket, sndrPort)) {
+            while (!isAlive(socket, sndrAdd, sndrPort)) {
 
             }
             receiveFile(oFile, socket, sndrPort, sndrAdd);
@@ -59,11 +57,10 @@ public class Receiver {
                     prev = 0;
                 }
                 System.arraycopy(rcvMessage, 2, fileData, 0, 1022);
-                System.out.println(Arrays.toString(fileData));
                 outputFile.write(fileData);
-                System.out.println("Sending acknowldegment: " + seqNum);
+                System.out.println("Sending acknowledegment: " + seqNum);
             } else {
-                System.out.println("Did not receive correct squence number");
+                System.out.println("Did not receive correct sequence number");
             }
 
             sendAck(seqNum, socket, sndrAdd, sndrPort);
@@ -78,7 +75,7 @@ public class Receiver {
 
     }
 
-    public static boolean isAlive(DatagramSocket socket, int sndrPort) throws IOException {
+    public static boolean isAlive(DatagramSocket socket, InetAddress sndrAdd,int sndrPort) throws IOException {
         byte[] aliveornot = new byte[1];
 
         DatagramPacket incomingPacket = new DatagramPacket(aliveornot, aliveornot.length);
@@ -86,6 +83,8 @@ public class Receiver {
         aliveornot = incomingPacket.getData();
 
         if (aliveornot[0] == 1) {
+        	System.out.println("Ready to go!");
+        	sendAck(1,socket,sndrAdd,sndrPort);
             return true;
         } else {
             return false;
