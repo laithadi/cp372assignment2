@@ -2,6 +2,8 @@ import java.awt.EventQueue;
 
 import javax.swing.JFrame;
 import java.awt.GridBagLayout;
+import java.awt.HeadlessException;
+
 import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 
@@ -189,49 +191,26 @@ public class Client {
 		frame.getContentPane().add(rdbtnUnreliable, gbc_rdbtnUnreliable);
 		
 		btnIsalive = new JButton("ISALIVE?");
-		GridBagConstraints gbc_btnIsalive = new GridBagConstraints();
-		gbc_btnIsalive.insets = new Insets(0, 0, 5, 5);
-		gbc_btnIsalive.gridx = 1;
-		gbc_btnIsalive.gridy = 6;
-		frame.getContentPane().add(btnIsalive, gbc_btnIsalive);
-		
-		btnSend = new JButton("SEND");
-		btnSend.addActionListener(new ActionListener() {
+		btnIsalive.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
-				
-				btnSend.setEnabled(false);
-				btnIsalive.setEnabled(false);
 				String IP;
 				int rcvPort;
 				int sendPort;
-				int timeout;
-				boolean unreliable;
 				try {
-					IP = IPAddress.getText();
-					rcvPort = Integer.parseInt(receiverPort.getText());
-					sendPort = Integer.parseInt(senderPort.getText());
-					timeout = Integer.parseInt(TIMEOUT.getText());
-					unreliable = rdbtnUnreliable.isSelected();
-					File file = fileChooser.getSelectedFile();
-					sender = new Sender(IP,rcvPort,sendPort);
-					byte[] byteArray = sender.readFiletoBytes(file);
-					boolean end=false;
-					int sequenceNum =0;
-					int packetNum =0;
-					int index=0;
-					for(int i=0;i<byteArray.length;i+=1022) {
-						index=i;
-						if((i+1022)>=byteArray.length) {
-							end = true;
-						}
-						sender.sendPacket(byteArray, timeout, unreliable, index, sequenceNum, packetNum, end);
-						packetNum++;
-						sequenceNum = sequenceNum==1 ? 0:1;
-						numPacketsinOrder.setText(Integer.toString(packetNum));
-						
+					if(sender==null) {
+						IP = IPAddress.getText();
+						rcvPort = Integer.parseInt(receiverPort.getText());
+						sendPort = Integer.parseInt(senderPort.getText());
+						sender = new Sender(IP,rcvPort,sendPort);
 					}
-				System.out.println("All packets sent");
 					
+					if(sender.isAlive()) {
+						JOptionPane.showMessageDialog(null, "Receiver Ready!");
+						btnSend.setEnabled(true);
+						btnIsalive.setEnabled(false);
+					}else {
+						JOptionPane.showMessageDialog(null, "Receiver Not Ready!");
+					}
 				}catch (NumberFormatException err) {
 					System.out.println("Incorrect credentials");
 					JOptionPane.showMessageDialog(null, "Incorrect Input");
@@ -242,12 +221,71 @@ public class Client {
 					// TODO Auto-generated catch block
 					JOptionPane.showMessageDialog(null, "Unable to connect");
 					e1.printStackTrace();
+				} catch (HeadlessException e1) {
+					// TODO Auto-generated catch block
+					JOptionPane.showMessageDialog(null, "Receiver Not Ready!");
+					e1.printStackTrace();
 				} catch (IOException e1) {
 					// TODO Auto-generated catch block
+					JOptionPane.showMessageDialog(null, "Receiver Not Ready!");
 					e1.printStackTrace();
 				}
-				btnSend.setEnabled(true);
-				btnIsalive.setEnabled(true);
+				
+			}
+		});
+		GridBagConstraints gbc_btnIsalive = new GridBagConstraints();
+		gbc_btnIsalive.insets = new Insets(0, 0, 5, 5);
+		gbc_btnIsalive.gridx = 1;
+		gbc_btnIsalive.gridy = 6;
+		frame.getContentPane().add(btnIsalive, gbc_btnIsalive);
+		
+		btnSend = new JButton("SEND");
+		btnSend.setEnabled(false);
+		btnSend.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				btnSend.setEnabled(false);
+				SwingUtilities.invokeLater(new Runnable() {
+					@Override
+					public void run() {
+						int timeout;
+						boolean unreliable;
+						try {
+							timeout = Integer.parseInt(TIMEOUT.getText());
+							unreliable = rdbtnUnreliable.isSelected();
+							File file = fileChooser.getSelectedFile();
+							byte[] byteArray = sender.readFiletoBytes(file);
+							boolean end=false;
+							int sequenceNum =0;
+							int packetNum =0;
+							int index=0;
+							System.out.println("Unreliable mode: "+ unreliable);
+							long startTime = System.currentTimeMillis();
+							for(int i=0;i<byteArray.length;i+=1022) {
+								index=i;
+								if((i+1022)>=byteArray.length) {
+									end = true;
+								}
+								sender.sendPacket(byteArray, timeout, unreliable, index, sequenceNum, packetNum, end);
+								packetNum++;
+								sequenceNum = sequenceNum==1 ? 0:1;
+								numPacketsinOrder.setText(Integer.toString(packetNum));
+								
+							}
+							long endTime = System.currentTimeMillis();
+							long timeElapsed = (endTime-startTime)/1000;
+							JOptionPane.showMessageDialog(null, String.format("%d seconds to send file", timeElapsed));
+						System.out.println("All packets sent");
+							
+						} catch (IOException e1) {
+							// TODO Auto-generated catch block
+							e1.printStackTrace();
+						}
+						btnSend.setEnabled(true);
+						btnIsalive.setEnabled(true);
+					}
+				});
+				
+				
 				
 			}
 		});
@@ -266,6 +304,7 @@ public class Client {
 		frame.getContentPane().add(lblSentInorder, gbc_lblSentInorder);
 		
 		numPacketsinOrder = new JTextField();
+		numPacketsinOrder.setEditable(false);
 		GridBagConstraints gbc_numPacketsinOrder = new GridBagConstraints();
 		gbc_numPacketsinOrder.insets = new Insets(0, 0, 0, 5);
 		gbc_numPacketsinOrder.fill = GridBagConstraints.HORIZONTAL;
