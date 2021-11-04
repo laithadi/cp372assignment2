@@ -6,12 +6,14 @@ import java.awt.HeadlessException;
 
 import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
+import javax.swing.SwingWorker;
 
 import java.awt.GridBagConstraints;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 
 import java.awt.Insets;
+
 import javax.swing.JButton;
 import javax.swing.JFileChooser;
 
@@ -21,6 +23,7 @@ import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.net.SocketException;
 import java.net.UnknownHostException;
+import java.util.List;
 import java.awt.event.ActionEvent;
 import javax.swing.JRadioButton;
 import javax.swing.ButtonGroup;
@@ -196,16 +199,24 @@ public class Client {
 				String IP;
 				int rcvPort;
 				int sendPort;
+				File file;
+				int timeout;
+				boolean unreliable;
 				try {
-					if(sender==null) {
-						IP = IPAddress.getText();
-						rcvPort = Integer.parseInt(receiverPort.getText());
-						sendPort = Integer.parseInt(senderPort.getText());
-						sender = new Sender(IP,rcvPort,sendPort);
+					if(sender!=null) {
+						sender.close();
 					}
+					IP = IPAddress.getText();
+					rcvPort = Integer.parseInt(receiverPort.getText());
+					sendPort = Integer.parseInt(senderPort.getText());
+					timeout = Integer.parseInt(TIMEOUT.getText());
+					unreliable = rdbtnUnreliable.isSelected();
+					file = fileChooser.getSelectedFile();
+					sender = new Sender(IP,rcvPort,sendPort,file,timeout,unreliable);
 					
 					if(sender.isAlive()) {
 						JOptionPane.showMessageDialog(null, "Receiver Ready!");
+						numPacketsinOrder.setText("0");
 						btnSend.setEnabled(true);
 						btnIsalive.setEnabled(false);
 					}else {
@@ -239,55 +250,65 @@ public class Client {
 		gbc_btnIsalive.gridy = 6;
 		frame.getContentPane().add(btnIsalive, gbc_btnIsalive);
 		
+		
+		
+
+		
+		
 		btnSend = new JButton("SEND");
 		btnSend.setEnabled(false);
 		btnSend.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
 				btnSend.setEnabled(false);
-				SwingUtilities.invokeLater(new Runnable() {
+				SwingWorker sw = new SwingWorker<Long,Integer>(){
 					@Override
-					public void run() {
-						int timeout;
-						boolean unreliable;
-						try {
-							timeout = Integer.parseInt(TIMEOUT.getText());
-							unreliable = rdbtnUnreliable.isSelected();
-							File file = fileChooser.getSelectedFile();
-							byte[] byteArray = sender.readFiletoBytes(file);
-							boolean end=false;
-							int sequenceNum =0;
-							int packetNum =0;
-							int index=0;
-							System.out.println("Unreliable mode: "+ unreliable);
-							long startTime = System.currentTimeMillis();
-							for(int i=0;i<byteArray.length;i+=1022) {
-								index=i;
-								if((i+1022)>=byteArray.length) {
-									end = true;
-								}
-								sender.sendPacket(byteArray, timeout, unreliable, index, sequenceNum, packetNum, end);
-								packetNum++;
-								sequenceNum = sequenceNum==1 ? 0:1;
-								numPacketsinOrder.setText(Integer.toString(packetNum));
-								
+					protected Long doInBackground() throws Exception {
+						// TODO Auto-generated method stub
+						byte[] byteArray = sender.readFiletoBytes();
+						boolean end=false;
+						int sequenceNum =0;
+						int packetNum =0;
+						int index=0;
+						System.out.println("Unreliable mode: "+ rdbtnUnreliable.isSelected());
+						long startTime = System.currentTimeMillis();
+						for(int i=0;i<byteArray.length;i+=1022) {
+							index=i;
+							if((i+1022)>=byteArray.length) {
+								end = true;
 							}
-							long endTime = System.currentTimeMillis();
-							long timeElapsed = (endTime-startTime)/1000;
-							JOptionPane.showMessageDialog(null, String.format("%d seconds to send file", timeElapsed));
-						System.out.println("All packets sent");
+							packetNum++;
+							sender.sendPacket(byteArray, index, sequenceNum, packetNum, end);
+							sequenceNum = sequenceNum==1 ? 0:1;
+							publish(packetNum);
+							System.out.println("Packet #: " + packetNum);
 							
-						} catch (IOException e1) {
-							// TODO Auto-generated catch block
-							e1.printStackTrace();
 						}
-						btnSend.setEnabled(true);
-						btnIsalive.setEnabled(true);
+						long endTime = System.currentTimeMillis();
+						long timeElapsed = (endTime-startTime)/1000;
+						System.out.println("Time elapsed "+ timeElapsed);
+						return timeElapsed;
 					}
-				});
+					@Override
+					protected void process(List<Integer> packets) {
+						numPacketsinOrder.setText(Integer.toString(packets.get(packets.size()-1)));
+					}
+					
+					@Override
+					protected void done() {
+						try {
+							JOptionPane.showMessageDialog(null, get() + " seconds to transfer file");
+						}catch(Exception e) {
+							e.printStackTrace();
+						}
+						
+					}
+					
+				};
+				sw.execute();
 				
-				
-				
+				btnIsalive.setEnabled(true);
 			}
+				
 		});
 		GridBagConstraints gbc_btnSend = new GridBagConstraints();
 		gbc_btnSend.insets = new Insets(0, 0, 5, 5);
