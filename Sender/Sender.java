@@ -7,18 +7,28 @@ public class Sender {
     private int rcvPort;
     private int sendPort;
     private DatagramSocket socket;
+    private File file;
+    private boolean unreliable;
+    private int timeout;
     
-    public Sender(String IP, int rcvPort, int sendPort) throws UnknownHostException, SocketException {
+    public Sender(String IP, int rcvPort, int sendPort,File file, int timeout,boolean unreliable) throws UnknownHostException, SocketException {
     	
     		this.rcvAddress = InetAddress.getByName(IP);
     		this.sendPort = sendPort;
         	this.rcvPort = rcvPort;
         	this.socket = new DatagramSocket(this.sendPort);
+        	this.file = file;
+        	this.timeout = timeout;
+        	this.unreliable = unreliable;
+        	
     	
     	
     	
     }
     
+    public void close() {
+    	this.socket.close();
+    }
     public boolean isAlive() throws IOException {
     	byte[] message = new byte[1];
     	message[0] = (byte) 1;
@@ -44,7 +54,7 @@ public class Sender {
     	return false;
     }
     
-    public void sendPacket(byte[] byteArray,int timeout, boolean unreliable,int index,int sequenceNum,int packetNum,boolean end) throws IOException {
+    public void sendPacket(byte[] byteArray,int index,int sequenceNum,int packetNum,boolean end) throws IOException {
     	byte[] message = new byte[1024];
     	message[0] = (byte) sequenceNum;
     	message[1] = end ? (byte) 1: (byte) 0;
@@ -55,8 +65,7 @@ public class Sender {
     		System.out.println("End of file");
     	}
     	DatagramPacket data = new DatagramPacket(message,message.length,this.rcvAddress,this.rcvPort);
-    	packetNum++;
-    	if(unreliable && packetNum%10==0){
+    	if(this.unreliable && packetNum%10==0){
     		System.out.println(String.format("Dropping packet #:%d in unreliable mode", packetNum));
     	}else {
     		System.out.println("Sending packet #: "+ packetNum);
@@ -70,7 +79,7 @@ public class Sender {
     		byte[] ACK = new byte[1];
     		DatagramPacket ACKpack = new DatagramPacket(ACK,ACK.length);
     		try {
-    			socket.setSoTimeout(timeout);
+    			socket.setSoTimeout(this.timeout);
     			socket.receive(ACKpack);
     			ackSequence = ACK[0];
     			received = true;
@@ -93,11 +102,11 @@ public class Sender {
     }
     
     
-    public byte[] readFiletoBytes(File file) {
+    public byte[] readFiletoBytes() {
     	FileInputStream inputStream = null;
-    	byte[] bArray = new byte[(int) file.length()];
+    	byte[] bArray = new byte[(int) this.file.length()];
     	try {
-    		inputStream = new FileInputStream(file);
+    		inputStream = new FileInputStream(this.file);
     		inputStream.read(bArray);
     		inputStream.close();
     	}catch (IOException e) {
