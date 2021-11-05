@@ -196,51 +196,61 @@ public class Client {
 		btnIsalive = new JButton("ISALIVE?");
 		btnIsalive.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
-				String IP;
-				int rcvPort;
-				int sendPort;
-				File file;
-				int timeout;
-				boolean unreliable;
-				try {
-					if(sender!=null) {
-						sender.close();
+				SwingUtilities.invokeLater(new Runnable() {
+					@Override
+					public void run() {
+						String IP;
+						int rcvPort;
+						int sendPort;
+						File file;
+						int timeout;
+						boolean unreliable;
+						try {
+							if(sender!=null) {
+								sender.close();
+							}
+							IP = IPAddress.getText();
+							rcvPort = Integer.parseInt(receiverPort.getText());
+							sendPort = Integer.parseInt(senderPort.getText());
+							timeout = Integer.parseInt(TIMEOUT.getText());
+							unreliable = rdbtnUnreliable.isSelected();
+							file = fileChooser.getSelectedFile();
+							sender = new Sender(IP,rcvPort,sendPort,file,timeout,unreliable);
+							
+							if(sender.isAlive()) {
+								JOptionPane.showMessageDialog(null, "Receiver Ready!");
+								numPacketsinOrder.setText("0");
+								btnSend.setEnabled(true);
+								btnIsalive.setEnabled(false);
+								rdbtnReliable.setEnabled(false);
+								rdbtnUnreliable.setEnabled(false);
+								btnSelectFile.setEnabled(false);
+								senderPort.setEditable(false);
+								receiverPort.setEditable(false);
+								IPAddress.setEditable(false);
+								TIMEOUT.setEditable(false);
+							}else {
+								JOptionPane.showMessageDialog(null, "Receiver Not Ready!");
+							}
+						}catch (NumberFormatException err) {
+							System.out.println("Incorrect credentials");
+							JOptionPane.showMessageDialog(null, "Incorrect Input");
+						} catch (UnknownHostException e1) {
+							// TODO Auto-generated catch block
+							JOptionPane.showMessageDialog(null, "Incorrect Credentials");
+						} catch (SocketException  e1) {
+							// TODO Auto-generated catch block
+							JOptionPane.showMessageDialog(null, "Unable to connect");
+						} catch (HeadlessException e1) {
+							// TODO Auto-generated catch block
+							JOptionPane.showMessageDialog(null, "Receiver Not Ready!");
+						} catch (IOException e1) {
+							// TODO Auto-generated catch block
+							JOptionPane.showMessageDialog(null, "Receiver Not Ready!");
+						}
 					}
-					IP = IPAddress.getText();
-					rcvPort = Integer.parseInt(receiverPort.getText());
-					sendPort = Integer.parseInt(senderPort.getText());
-					timeout = Integer.parseInt(TIMEOUT.getText());
-					unreliable = rdbtnUnreliable.isSelected();
-					file = fileChooser.getSelectedFile();
-					sender = new Sender(IP,rcvPort,sendPort,file,timeout,unreliable);
-					
-					if(sender.isAlive()) {
-						JOptionPane.showMessageDialog(null, "Receiver Ready!");
-						numPacketsinOrder.setText("0");
-						btnSend.setEnabled(true);
-						btnIsalive.setEnabled(false);
-					}else {
-						JOptionPane.showMessageDialog(null, "Receiver Not Ready!");
-					}
-				}catch (NumberFormatException err) {
-					System.out.println("Incorrect credentials");
-					JOptionPane.showMessageDialog(null, "Incorrect Input");
-				} catch (UnknownHostException e1) {
-					// TODO Auto-generated catch block
-					JOptionPane.showMessageDialog(null, "Incorrect Credentials");
-				} catch (SocketException  e1) {
-					// TODO Auto-generated catch block
-					JOptionPane.showMessageDialog(null, "Unable to connect");
-					e1.printStackTrace();
-				} catch (HeadlessException e1) {
-					// TODO Auto-generated catch block
-					JOptionPane.showMessageDialog(null, "Receiver Not Ready!");
-					e1.printStackTrace();
-				} catch (IOException e1) {
-					// TODO Auto-generated catch block
-					JOptionPane.showMessageDialog(null, "Receiver Not Ready!");
-					e1.printStackTrace();
-				}
+				});
+				
 				
 			}
 		});
@@ -250,19 +260,14 @@ public class Client {
 		gbc_btnIsalive.gridy = 6;
 		frame.getContentPane().add(btnIsalive, gbc_btnIsalive);
 		
-		
-		
-
-		
-		
 		btnSend = new JButton("SEND");
 		btnSend.setEnabled(false);
 		btnSend.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
 				btnSend.setEnabled(false);
-				SwingWorker sw = new SwingWorker<Long,Integer>(){
+				SwingWorker sw = new SwingWorker<Void,Integer>(){
 					@Override
-					protected Long doInBackground() throws Exception {
+					protected Void doInBackground() throws Exception {
 						// TODO Auto-generated method stub
 						byte[] byteArray = sender.readFiletoBytes();
 						boolean end=false;
@@ -270,7 +275,7 @@ public class Client {
 						int packetNum =0;
 						int index=0;
 						System.out.println("Unreliable mode: "+ rdbtnUnreliable.isSelected());
-						long startTime = System.currentTimeMillis();
+						
 						for(int i=0;i<byteArray.length;i+=1022) {
 							index=i;
 							if((i+1022)>=byteArray.length) {
@@ -280,13 +285,10 @@ public class Client {
 							sender.sendPacket(byteArray, index, sequenceNum, packetNum, end);
 							sequenceNum = sequenceNum==1 ? 0:1;
 							publish(packetNum);
-							System.out.println("Packet #: " + packetNum);
 							
 						}
-						long endTime = System.currentTimeMillis();
-						long timeElapsed = (endTime-startTime)/1000;
-						System.out.println("Time elapsed "+ timeElapsed);
-						return timeElapsed;
+						return null;
+						
 					}
 					@Override
 					protected void process(List<Integer> packets) {
@@ -296,9 +298,9 @@ public class Client {
 					@Override
 					protected void done() {
 						try {
-							JOptionPane.showMessageDialog(null, get() + " seconds to transfer file");
+							JOptionPane.showMessageDialog(null, "File transferred");
 						}catch(Exception e) {
-							e.printStackTrace();
+							;
 						}
 						
 					}
@@ -307,6 +309,14 @@ public class Client {
 				sw.execute();
 				
 				btnIsalive.setEnabled(true);
+				btnSend.setEnabled(false);
+				rdbtnReliable.setEnabled(true);
+				rdbtnUnreliable.setEnabled(true);
+				btnSelectFile.setEnabled(true);
+				senderPort.setEditable(true);
+				receiverPort.setEditable(true);
+				IPAddress.setEditable(true);
+				TIMEOUT.setEditable(true);
 			}
 				
 		});
