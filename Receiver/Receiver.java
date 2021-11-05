@@ -37,16 +37,23 @@ public class Receiver {
         int seqNum = 0;
         int prev = 0;
         int flag = 0;
+        boolean timer = true;
 
         while (true) {
-
+            
+        
             byte[] rcvMessage = new byte[1024];
             byte[] fileData = new byte[1022];
 
             DatagramPacket incomingPacket = new DatagramPacket(rcvMessage, rcvMessage.length);
             socket.receive(incomingPacket);
+            if (timer) {
+                long startTime = System.currentTimeMillis();
+                timer = false;
+            }
+                
             rcvMessage = incomingPacket.getData();
-
+            
             seqNum = rcvMessage[0];
             flag = rcvMessage[1];
 
@@ -68,6 +75,9 @@ public class Receiver {
             if (flag == 1) {
                 System.out.println("Reached end of file!");
                 outputFile.close();
+                long endTime = System.currentTimeMillis();
+                long timeElapsed = (endTime-startTime)/1000;
+                System.out.println("Time Elapsed: " + timeElapsed);
                 break;
             }
 
