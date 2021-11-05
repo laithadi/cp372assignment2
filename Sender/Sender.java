@@ -54,7 +54,7 @@ public class Sender {
     	return false;
     }
     
-    public void sendPacket(byte[] byteArray,int index,int sequenceNum,int packetNum,boolean end) throws IOException {
+    public int sendPacket(byte[] byteArray,int index,int sequenceNum,int packetNum,boolean end) throws IOException {
     	byte[] message = new byte[1024];
     	message[0] = (byte) sequenceNum;
     	message[1] = end ? (byte) 1: (byte) 0;
@@ -72,6 +72,7 @@ public class Sender {
     		//System.out.println("Sending packet #: "+ packetNum);
     		this.socket.send(data);
     	}
+    	packetNum++;
     	//System.out.println("Sequence Number: "+ sequenceNum);
     	
     	boolean received;
@@ -95,9 +96,11 @@ public class Sender {
     			break;
     		}else {
     			socket.send(data);
+    			packetNum++;
     			//System.out.println("Resending packet");
     		}
     	}
+    	return packetNum;
     	
     	
     }
