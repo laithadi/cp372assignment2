@@ -38,6 +38,7 @@ public class Receiver {
         int prev = 0;
         int flag = 0;
         boolean timer = true;
+        long startTime = 0;
 
         while (true) {
             
@@ -48,7 +49,7 @@ public class Receiver {
             DatagramPacket incomingPacket = new DatagramPacket(rcvMessage, rcvMessage.length);
             socket.receive(incomingPacket);
             if (timer) {
-                long startTime = System.currentTimeMillis();
+                startTime = System.currentTimeMillis();
                 timer = false;
             }
                 
@@ -65,9 +66,10 @@ public class Receiver {
                 }
                 System.arraycopy(rcvMessage, 2, fileData, 0, 1022);
                 outputFile.write(fileData);
-                System.out.println("Sending acknowledegment: " + seqNum);
+                //System.out.println("Sending acknowledegment: " + seqNum);
             } else {
-                System.out.println("Did not receive correct sequence number");
+                //System.out.println("Did not receive correct sequence number");
+            	;
             }
 
             sendAck(seqNum, socket, sndrAdd, sndrPort);
