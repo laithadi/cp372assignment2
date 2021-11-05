@@ -38,14 +38,14 @@ public class Sender {
     	try {
     		byte[] ACK = new byte[1];
     		DatagramPacket ACKpack = new DatagramPacket(ACK,ACK.length);
-    		this.socket.setSoTimeout(5000);
+    		this.socket.setSoTimeout(this.timeout);
 			this.socket.receive(ACKpack);
 			alive = ACK[0];
 			if(alive==1) {
 				return true;
 			}
     	}catch (SocketTimeoutException e) {
-    		e.printStackTrace();
+    		System.out.println("Receiver not ready");
     		
     	} catch (IOException e) {
 			// TODO Auto-generated catch block
@@ -62,16 +62,17 @@ public class Sender {
     		System.arraycopy(byteArray, index, message, 2, message.length-2);
     	}else {
     		System.arraycopy(byteArray, index, message, 2, byteArray.length-index);
-    		System.out.println("End of file");
+    		//System.out.println("End of file");
     	}
     	DatagramPacket data = new DatagramPacket(message,message.length,this.rcvAddress,this.rcvPort);
     	if(this.unreliable && packetNum%10==0){
-    		System.out.println(String.format("Dropping packet #:%d in unreliable mode", packetNum));
+    		//System.out.println(String.format("Dropping packet #:%d in unreliable mode", packetNum));
+    		;
     	}else {
-    		System.out.println("Sending packet #: "+ packetNum);
+    		//System.out.println("Sending packet #: "+ packetNum);
     		this.socket.send(data);
     	}
-    	System.out.println("Sequence Number: "+ sequenceNum);
+    	//System.out.println("Sequence Number: "+ sequenceNum);
     	
     	boolean received;
     	int ackSequence=0;
@@ -83,18 +84,18 @@ public class Sender {
     			socket.receive(ACKpack);
     			ackSequence = ACK[0];
     			received = true;
-    			System.out.println("Acknowledgement number: " + ACK[0]);
+    			//System.out.println("Acknowledgement number: " + ACK[0]);
     		}catch (SocketTimeoutException e) {
     			received = false;
-    			System.out.println("ACK not received");
+    			//System.out.println("ACK not received");
     		}
     		
     		if(ackSequence == sequenceNum && received) {
-    			System.out.println("ACK received: Sequence Num: " + ackSequence);
+    			//System.out.println("ACK received: Sequence Num: " + ackSequence);
     			break;
     		}else {
     			socket.send(data);
-    			System.out.println("Resending packet");
+    			//System.out.println("Resending packet");
     		}
     	}
     	
